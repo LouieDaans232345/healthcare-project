@@ -23,6 +23,7 @@ WESAD dataset: https://ubi29.informatik.uni-siegen.de/usi/data_wesad.html
 - [Initial_EDA.ipynb](Initial_EDA.ipynb) — first look at raw signals, labels, and protocol
 - [modeling.ipynb](modeling.ipynb) — feature matrix, LOSO training, and evaluation
 - [metadata.ipynb](metadata.ipynb) — metadata and survey data extraction (extension)
+- [model_experimenting.ipynb](model_experimenting.ipynb) - alternative experimental models using different data
 - [helpers.py](helpers.py) — shared utilities
 - [models](models/) — saved pipelines
 - [results_loso/figs](results_loso/figs/) — evaluation figures
@@ -30,6 +31,6 @@ WESAD dataset: https://ubi29.informatik.uni-siegen.de/usi/data_wesad.html
 - [stress_prediction_report.pdf](stress_prediction_report.pdf) - report
 
 ## Future work
-- Add subject metadata and survey traits for personalization (see [metadata.ipynb](metadata.ipynb))
-- Compare additional models such as Random Forest and AdaBoost
+- Add subject metadata and survey traits for personalization (see [metadata.ipynb](metadata.ipynb), [model_experimenting.ipynb](model_experimenting.ipynb))
+- Compare additional models such as Random Forest and AdaBoost (also see [model_experimenting.ipynb](model_experimenting.ipynb))
 - Explore feature selection and robustness to motion artifacts
