@@ -185,7 +185,7 @@ def plot_raw_wrist_windows(
             continue
         starts[label_val] = int(idx[0])
 
-    print("\nSection 5: Visualizing Raw Signals")
+    print("\nVisualising Raw Signals")
     print(f"Window length: {win_s}s per condition")
     print("Conditions:", conditions)
 
@@ -428,7 +428,8 @@ def butter_lowpass_filter(x: np.ndarray, fs: float, cutoff_hz: float, order: int
     b, a = butter(order, cutoff / nyq, btype="low")
     return filtfilt(b, a, x)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def butter_bandpass_filter(
     x: np.ndarray,
     fs: float,
@@ -447,7 +448,8 @@ def butter_bandpass_filter(
     b, a = butter(order, [low / nyq, high / nyq], btype="band")
     return filtfilt(b, a, x)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def moving_average(x: np.ndarray, window_samples: int):
     """
     Simple moving average for smoothing.
@@ -457,7 +459,8 @@ def moving_average(x: np.ndarray, window_samples: int):
     kernel = np.ones(window_samples, dtype=float) / float(window_samples)
     return np.convolve(x, kernel, mode="same")
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def snr_proxy_db(raw: np.ndarray, filtered: np.ndarray):
     """
     Simple SNR proxy: 10*log10(var(raw) / var(raw - filtered)).
@@ -469,13 +472,15 @@ def snr_proxy_db(raw: np.ndarray, filtered: np.ndarray):
         return float("inf")
     return 10.0 * np.log10(var_raw / var_noise)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _fallback_features(feature_names, prev_features=None, fallback="prev"):
     if fallback == "prev" and prev_features is not None:
         return {name: prev_features.get(name, np.nan) for name in feature_names}
     return {name: np.nan for name in feature_names}
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _slope(values: np.ndarray, fs: float):
     if values.size < 2:
         return np.nan
@@ -483,7 +488,39 @@ def _slope(values: np.ndarray, fs: float):
     coeff = np.polyfit(t, values, 1)
     return float(coeff[0])
 
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+def _postprocess_feature_row(row, fill_missing=True, add_quality_flags=True):
+    if add_quality_flags:
+        eda_peaks = row.get("eda_scr_peaks", np.nan)
+        row["eda_scr_has_peaks"] = int(np.isfinite(eda_peaks) and eda_peaks > 0)
 
+        lf = row.get("bvp_hrv_lf", np.nan)
+        hf = row.get("bvp_hrv_hf", np.nan)
+        row["bvp_hrv_freq_valid"] = int(np.isfinite(lf) and np.isfinite(hf))
+
+    if fill_missing:
+        scr_peaks = row.get("eda_scr_peaks", np.nan)
+        if not np.isfinite(scr_peaks):
+            row["eda_scr_peaks"] = 0
+        for key in ("eda_scr_mean_amp", "eda_scr_auc"):
+            value = row.get(key, np.nan)
+            if not np.isfinite(value):
+                row[key] = 0.0
+
+        for key in (
+            "bvp_hrv_ulf",
+            "bvp_hrv_lf",
+            "bvp_hrv_hf",
+            "bvp_hrv_uhf",
+            "bvp_hrv_lf_hf",
+        ):
+            value = row.get(key, np.nan)
+            if not np.isfinite(value):
+                row[key] = 0.0
+
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _sanitize_signal(values: np.ndarray):
     signal = np.asarray(values, dtype=float).flatten()
     if signal.size == 0:
@@ -495,7 +532,8 @@ def _sanitize_signal(values: np.ndarray):
         signal = np.nan_to_num(signal, nan=median, posinf=median, neginf=median)
     return signal
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _normalize_signal(values: np.ndarray):
     signal = _sanitize_signal(values)
     if signal.size == 0:
@@ -505,7 +543,8 @@ def _normalize_signal(values: np.ndarray):
         return signal - np.mean(signal)
     return (signal - np.mean(signal)) / std
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _ppg_peak_indices(ppg_clean: np.ndarray, fs_bvp: float):
     try:
         signals, info = nk.ppg_peaks(ppg_clean, sampling_rate=fs_bvp, method="elgendi")
@@ -532,7 +571,8 @@ def _ppg_peak_indices(ppg_clean: np.ndarray, fs_bvp: float):
 
     return peak_idx
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _bvp_spectral_fallback(bvp_signal: np.ndarray, fs_bvp: float):
     features = {
         "bvp_hr_mean": np.nan,
@@ -590,7 +630,8 @@ def _bvp_spectral_fallback(bvp_signal: np.ndarray, fs_bvp: float):
 
     return features
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _bandpower(freqs: np.ndarray, power: np.ndarray, fmin: float, fmax: float):
     mask = (freqs >= fmin) & (freqs < fmax)
     if not np.any(mask):
@@ -599,13 +640,15 @@ def _bandpower(freqs: np.ndarray, power: np.ndarray, fmin: float, fmax: float):
         return float(np.trapezoid(power[mask], freqs[mask]))
     return float(np.trapz(power[mask], freqs[mask]))
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _integrate_trapz(values: np.ndarray, dx: float = 1.0):
     if hasattr(np, "trapezoid"):
         return float(np.trapezoid(values, dx=dx))
     return float(np.trapz(values, dx=dx))
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _psd_welch(signal: np.ndarray, fs: float, fmin: float, fmax: float):
     if signal.size < 4:
         return None, None
@@ -614,7 +657,8 @@ def _psd_welch(signal: np.ndarray, fs: float, fmin: float, fmax: float):
     mask = (freqs >= fmin) & (freqs <= fmax)
     return freqs[mask], power[mask]
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _psd_neurokit(signal: np.ndarray, fs: float, fmin: float, fmax: float):
     psd = nk.signal_psd(
         signal,
@@ -637,7 +681,8 @@ def _psd_neurokit(signal: np.ndarray, fs: float, fmin: float, fmax: float):
             return freqs, power
     return None, None
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_bvp_features(bvp_window, fs_bvp=64, prev_features=None, fallback="prev"):
     feature_names = [
         "bvp_hr_mean",
@@ -723,7 +768,8 @@ def extract_bvp_features(bvp_window, fs_bvp=64, prev_features=None, fallback="pr
     except Exception:
         return _bvp_spectral_fallback(bvp, fs_bvp)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_eda_features(eda_window, fs_eda=4, prev_features=None, fallback="prev"):
     feature_names = [
         "eda_mean",
@@ -802,7 +848,8 @@ def extract_eda_features(eda_window, fs_eda=4, prev_features=None, fallback="pre
 
     return features
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_temp_features(temp_window, fs_temp=4, prev_features=None, fallback="prev"):
     feature_names = [
         "temp_mean",
@@ -829,7 +876,8 @@ def extract_temp_features(temp_window, fs_temp=4, prev_features=None, fallback="
     except Exception:
         return _fallback_features(feature_names, prev_features, fallback)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _peak_frequency(signal: np.ndarray, fs: float):
     freqs, power = _psd_welch(signal, fs, 0.0, fs / 2.0)
     if freqs is None or power is None or freqs.size < 2:
@@ -838,7 +886,8 @@ def _peak_frequency(signal: np.ndarray, fs: float):
     idx = np.argmax(power[1:]) + 1
     return float(freqs[idx])
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_acc_features(
     acc_window,
     fs_acc=32,
@@ -906,12 +955,15 @@ def extract_acc_features(
     except Exception:
         return _fallback_features(feature_names, prev_features, fallback)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def build_feature_dataframe(
     segments_by_subject,
     fs_wrist=None,
     fallback="prev",
     acc_smooth_window_s=1.0,
+    fill_missing=True,
+    add_quality_flags=True,
     verbose=True,
 ):
     if fs_wrist is None:
@@ -954,6 +1006,12 @@ def build_feature_dataframe(
             row.update(eda_feat)
             row.update(temp_feat)
             row.update(acc_feat)
+            if fill_missing or add_quality_flags:
+                _postprocess_feature_row(
+                    row,
+                    fill_missing=fill_missing,
+                    add_quality_flags=add_quality_flags,
+                )
             rows.append(row)
 
             prev_bvp = bvp_feat
@@ -963,13 +1021,16 @@ def build_feature_dataframe(
 
     return pd.DataFrame(rows)
 
-
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
+###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def build_feature_dataframe_for_subject(
     segments_by_subject,
     subject_id,
     fs_wrist=None,
     fallback="prev",
     acc_smooth_window_s=1.0,
+    fill_missing=True,
+    add_quality_flags=True,
 ):
     if subject_id not in segments_by_subject:
         raise KeyError(f"Subject {subject_id} not found in segments_by_subject")
@@ -979,5 +1040,7 @@ def build_feature_dataframe_for_subject(
         fs_wrist=fs_wrist,
         fallback=fallback,
         acc_smooth_window_s=acc_smooth_window_s,
+        fill_missing=fill_missing,
+        add_quality_flags=add_quality_flags,
         verbose=True,
     )
