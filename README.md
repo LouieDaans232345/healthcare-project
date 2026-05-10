@@ -1,30 +1,35 @@
 # Stress Prediction from Physiological Signals
-## Final project of ML&DL for Healthcare
-#### Group: Biddiscombe, Daans, Kubišová, Sedra
+Final project for ML for Healthcare
 
-Idea of project: Follow research paper "Introducing WESAD, a Multimodal Dataset for Wearable Stress and Affect Detection" and recreate the experiment.
+Group: Biddiscombe, Daans, Kubišová, Sedra
 
-**Research paper link:** https://dl.acm.org/doi/epdf/10.1145/3242969.3242985
+We want a wrist-worn device to recognise stress from physiological signals. Using the WESAD dataset, we focus only on the Empatica E4 wrist sensors (BVP, EDA, TEMP, ACC) and build subject-independent models that generalise to people the model has never seen.
 
-**WESAD dataset:** https://ubi29.informatik.uni-siegen.de/usi/data_wesad.html
+Research paper: https://dl.acm.org/doi/epdf/10.1145/3242969.3242985
+WESAD dataset: https://ubi29.informatik.uni-siegen.de/usi/data_wesad.html
 
-**Note:** Only use data from wrist device (Empatica E4). 
+## What we predict
+- Multi-class: Baseline vs Stress vs Amusement vs Meditation
+- Binary: Stress vs Non-Stress (Baseline + Amusement + Meditation)
 
-<hr>
+## How we approach it
+- Explore raw signals and labels, validate sampling rates, and confirm protocol timing
+- Extract wrist-based features and analyze inter-subject variability
+- Train multiple models (Logistic Regression, Linear SVM, XGBoost, MLP)
+- Evaluate with Leave-One-Subject-Out (LOSO) cross-validation for strict subject independence
 
-**Objectives:**
-Develop ML moddels to predict stress conditions from physiological signals collected from a wearable wrist device. 
-The task can be formulated as a binary classification problem with classes "Stress" and "Non-stress", or as a multi-class problem, with classes like "Baseline", "Stress", "Amusement".
-The focus is on understanding how physiological signals measured at the wrist can be used to detect affective states.
+## Repository guide
+- [signals.ipynb](signals.ipynb) - data preprocessing and feature extraction
+- [Initial_EDA.ipynb](Initial_EDA.ipynb) — first look at raw signals, labels, and protocol
+- [modeling.ipynb](modeling.ipynb) — feature matrix, LOSO training, and evaluation
+- [metadata.ipynb](metadata.ipynb) — metadata and survey data extraction (extension)
+- [helpers.py](helpers.py) — shared utilities
+- [models](models/) — saved pipelines
+- [results_loso/figs](results_loso/figs/) — evaluation figures
+- [reports/metrics.json](reports/metrics.json) — stored metrics
+- [stress_prediction_report.pdf](stress_prediction_report.pdf) - report
 
-You must use different models than those proposed in the original paper.
-
-<hr>
-
-### Methodology:
-- **Data Exploration and Preprocessing:** Load and inspect physiological signals (e.g., BVP, EDA, temperature). Select only data acquired from the wrist-worn device (MUST) (Empatica E4). Apply preprocessing (e.g., filtering, normalization, artifact removal). Segment the data into time windows suitable for analysis.
-- **Feature Extraction / Representation:** Extract relevant features from physiological signals (e.g., statistical, temporal, and frequency-based features). Optionally use established libraries (e.g., FLIRT, NeuroKit) or develop a custom feature extraction pipeline Analyze feature relevance and variability across subjects.
-- **Model Development:** Implement classification models using approaches different from those proposed in the original study Compare multiple methods (e.g., logistic regression, support vector machines, tree-based models, or neural networks). Explore both binary and multi-class formulations of the problem
-- **Validation strategy:** MUST Implement a leave-one-subject-out cross-validation scheme to ensure subject-independent evaluation. Analyze how model performance generalizes across individuals.
-- **Model evaluation**: Evaluate performance using metrics such as accuracy, confusion matrix, precision, recall, F1-score, and ROC curves. Compare models and analyze strengths and limitations.
-- **Extension (optional):** Investigate personalization vs. general models Explore feature selection or dimensionality reduction Study robustness to noise and inter-subject variability.
+## Future work
+- Add subject metadata and survey traits for personalization (see [metadata.ipynb](metadata.ipynb))
+- Compare additional models such as Random Forest and AdaBoost
+- Explore feature selection and robustness to motion artifacts
