@@ -13,6 +13,23 @@ import neurokit2 as nk
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def load_subject_pickle(DATA_SOURCE: Path, subject_id: str, verbose: bool = True):
+    """
+    Load a subject's pickle data from a directory or a ZIP archive.
+
+    Parameters
+    ----------
+    DATA_SOURCE : Path
+        Path to the dataset root directory or to a ZIP archive containing subject folders.
+    subject_id : str
+        Subject identifier (e.g., "S2").
+    verbose : bool, optional
+        If True, print progress messages. Default is True.
+
+    Returns
+    -------
+    dict
+        Loaded subject data structure (as stored in the original WESAD pickle).
+    """
 
     pkl_rel_path = f"{subject_id}/{subject_id}.pkl"
     if verbose:
@@ -34,6 +51,19 @@ def load_subject_pickle(DATA_SOURCE: Path, subject_id: str, verbose: bool = True
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def summarise_subject(subject_id: str, data: dict):
+    """
+    Print a human-readable summary of wrist signals for a subject.
+
+    This reports sampling rates, per-sensor durations and a simple label distribution
+    for the wrist sensors only (ACC, BVP, EDA, TEMP).
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier used in printed headings.
+    data : dict
+        Subject data dictionary loaded from the WESAD pickle format.
+    """
 
     FS_WRIST = {
         "ACC": 32,
@@ -85,6 +115,24 @@ def summarise_subject(subject_id: str, data: dict):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def compact_summary(subject_id, data):
+    """
+    Build a compact summary dict for a subject.
+
+    Returns a small dictionary with duration, sample counts and label percentages
+    useful for building a summary DataFrame across subjects.
+
+    Parameters
+    ----------
+    subject_id : str
+        Subject identifier.
+    data : dict
+        Subject data dictionary loaded from the WESAD pickle format.
+
+    Returns
+    -------
+    dict
+        Summary row suitable for conversion to a pandas DataFrame.
+    """
 
     FS_WRIST = {
         "ACC": 32,
@@ -136,7 +184,19 @@ def plot_raw_wrist_windows(
 ):
     """
     Plot 60-second windows of raw wrist signals for each condition.
-    Keeps the notebook cell short by handling indices and plotting here.
+
+    Parameters
+    ----------
+    data : dict
+        Subject data dictionary containing `signal` and `label` keys.
+    fs_label : int, optional
+        Sampling rate of the label timeline (default 700 Hz for WESAD labels).
+    conditions : dict or None, optional
+        Mapping from label values to human-readable names to plot.
+    win_s : int, optional
+        Window length in seconds to visualise per condition.
+    acc_mode : {'axes', 'magnitude'}, optional
+        Whether to plot accelerometer axes separately or magnitude only.
     """
 
     if conditions is None:
@@ -288,7 +348,17 @@ def plot_meditation_windows(
 ):
     """
     Plot the first 60 seconds of each meditation segment (label 4).
-    Useful for comparing the start of each meditation block.
+
+    Parameters
+    ----------
+    data : dict
+        Subject data dictionary containing `signal` and `label` keys.
+    fs_label : int, optional
+        Sampling rate of the label timeline (default 700 Hz for WESAD labels).
+    win_s : int, optional
+        Window length in seconds to visualise per meditation segment.
+    acc_mode : {'axes', 'magnitude'}, optional
+        Whether to plot accelerometer axes separately or magnitude only.
     """
 
     labels = np.asarray(data["label"]).astype(int)
@@ -421,7 +491,23 @@ def plot_meditation_windows(
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def butter_lowpass_filter(x: np.ndarray, fs: float, cutoff_hz: float, order: int = 4):
     """
-    Low-pass Butterworth filter with zero-phase filtering (filtfilt).
+    Apply a zero-phase low-pass Butterworth filter to a 1-D signal.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input signal.
+    fs : float
+        Signal sampling rate (Hz).
+    cutoff_hz : float
+        Desired cutoff frequency (Hz). Will be clipped to below Nyquist.
+    order : int, optional
+        Filter order (default 4).
+
+    Returns
+    -------
+    np.ndarray
+        Filtered signal of the same length as `x`.
     """
     nyq = 0.5 * fs
     cutoff = min(cutoff_hz, 0.99 * nyq)
@@ -438,7 +524,25 @@ def butter_bandpass_filter(
     order: int = 4,
 ):
     """
-    Band-pass Butterworth filter with zero-phase filtering (filtfilt).
+    Apply a zero-phase band-pass Butterworth filter to a 1-D signal.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input signal.
+    fs : float
+        Signal sampling rate (Hz).
+    low_hz : float
+        Lower cutoff frequency (Hz).
+    high_hz : float
+        Upper cutoff frequency (Hz).
+    order : int, optional
+        Filter order (default 4).
+
+    Returns
+    -------
+    np.ndarray
+        Filtered signal of the same length as `x`.
     """
     nyq = 0.5 * fs
     high = min(high_hz, 0.99 * nyq)
@@ -452,7 +556,19 @@ def butter_bandpass_filter(
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def moving_average(x: np.ndarray, window_samples: int):
     """
-    Simple moving average for smoothing.
+    Smooth a signal using a centred moving average.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input 1-D signal.
+    window_samples : int
+        Window length in samples. If <= 1 a copy of `x` is returned.
+
+    Returns
+    -------
+    np.ndarray
+        Smoothed signal.
     """
     if window_samples <= 1:
         return x.copy()
@@ -463,7 +579,22 @@ def moving_average(x: np.ndarray, window_samples: int):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def snr_proxy_db(raw: np.ndarray, filtered: np.ndarray):
     """
-    Simple SNR proxy: 10*log10(var(raw) / var(raw - filtered)).
+    Estimate a simple signal-to-noise ratio (SNR) in decibels.
+
+    The function computes 10*log10(var(raw) / var(raw - filtered)). If the
+    noise variance is zero, `inf` is returned.
+
+    Parameters
+    ----------
+    raw : np.ndarray
+        Original (noisy) signal.
+    filtered : np.ndarray
+        Denoised/filtered version of the signal.
+
+    Returns
+    -------
+    float
+        Estimated SNR in dB.
     """
     noise = raw - filtered
     var_raw = np.var(raw)
@@ -475,6 +606,12 @@ def snr_proxy_db(raw: np.ndarray, filtered: np.ndarray):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _fallback_features(feature_names, prev_features=None, fallback="prev"):
+    """
+    Return a dictionary of fallback feature values.
+
+    If `fallback` is 'prev' and `prev_features` is provided, the previous
+    feature values are reused when available; otherwise NaNs are returned.
+    """
     if fallback == "prev" and prev_features is not None:
         return {name: prev_features.get(name, np.nan) for name in feature_names}
     return {name: np.nan for name in feature_names}
@@ -482,6 +619,12 @@ def _fallback_features(feature_names, prev_features=None, fallback="prev"):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _slope(values: np.ndarray, fs: float):
+    """
+    Compute the linear slope of a 1-D signal in units per second.
+
+    Uses a first-order polynomial fit; returns NaN for signals with fewer than
+    two samples.
+    """
     if values.size < 2:
         return np.nan
     t = np.arange(values.size, dtype=float) / float(fs)
@@ -491,6 +634,18 @@ def _slope(values: np.ndarray, fs: float):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _postprocess_feature_row(row, fill_missing=True, add_quality_flags=True):
+    """
+    Post-process a feature row by filling missing values and adding quality flags.
+
+    Parameters
+    ----------
+    row : dict
+        Dictionary of feature values to be mutated in-place.
+    fill_missing : bool, optional
+        If True, replace NaNs with sensible defaults (e.g., 0 for counts/areas).
+    add_quality_flags : bool, optional
+        If True, add boolean/int flags indicating whether key features are valid.
+    """
     if add_quality_flags:
         eda_peaks = row.get("eda_scr_peaks", np.nan)
         row["eda_scr_has_peaks"] = int(np.isfinite(eda_peaks) and eda_peaks > 0)
@@ -522,6 +677,12 @@ def _postprocess_feature_row(row, fill_missing=True, add_quality_flags=True):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _sanitize_signal(values: np.ndarray):
+    """
+    Sanitize a numeric signal by converting to float and replacing non-finite values.
+
+    Non-finite values (NaN, +/-inf) are replaced with the signal median or 0
+    if the median is not finite.
+    """
     signal = np.asarray(values, dtype=float).flatten()
     if signal.size == 0:
         return signal
@@ -535,6 +696,12 @@ def _sanitize_signal(values: np.ndarray):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _normalize_signal(values: np.ndarray):
+    """
+    Sanitize and z-score normalize a signal.
+
+    If the standard deviation is zero or not finite, the mean is subtracted and
+    the unscaled signal is returned.
+    """
     signal = _sanitize_signal(values)
     if signal.size == 0:
         return signal
@@ -546,6 +713,12 @@ def _normalize_signal(values: np.ndarray):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _ppg_peak_indices(ppg_clean: np.ndarray, fs_bvp: float):
+    """
+    Detect PPG/PPG-derived peak indices using NeuroKit2 with fallbacks.
+
+    Attempts NeuroKit's `ppg_peaks` and falls back to `find_peaks` if the
+    result is insufficient. Returns an integer array of peak sample indices.
+    """
     try:
         signals, info = nk.ppg_peaks(ppg_clean, sampling_rate=fs_bvp, method="elgendi")
     except Exception:
@@ -574,6 +747,13 @@ def _ppg_peak_indices(ppg_clean: np.ndarray, fs_bvp: float):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _bvp_spectral_fallback(bvp_signal: np.ndarray, fs_bvp: float):
+    """
+    Fallback HR/HRV estimation from BVP using spectral methods.
+
+    Used when peak-based beat detection fails; returns a dictionary with the
+    same keys as `extract_bvp_features` but with approximate values derived
+    from the PSD.
+    """
     features = {
         "bvp_hr_mean": np.nan,
         "bvp_hr_std": np.nan,
@@ -633,6 +813,23 @@ def _bvp_spectral_fallback(bvp_signal: np.ndarray, fs_bvp: float):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _bandpower(freqs: np.ndarray, power: np.ndarray, fmin: float, fmax: float):
+    """
+    Integrate power spectral density over a frequency band using trapezoidal rule.
+
+    Parameters
+    ----------
+    freqs : np.ndarray
+        Frequency vector corresponding to `power`.
+    power : np.ndarray
+        Power spectral density values.
+    fmin, fmax : float
+        Frequency band edges (inclusive lower, exclusive upper).
+
+    Returns
+    -------
+    float
+        Integrated band power or NaN if no frequencies fall in the band.
+    """
     mask = (freqs >= fmin) & (freqs < fmax)
     if not np.any(mask):
         return np.nan
@@ -643,6 +840,21 @@ def _bandpower(freqs: np.ndarray, power: np.ndarray, fmin: float, fmax: float):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _integrate_trapz(values: np.ndarray, dx: float = 1.0):
+    """
+    Integrate an array using NumPy's trapezoidal rule with compatibility.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Values to integrate.
+    dx : float, optional
+        Sample spacing (default 1.0).
+
+    Returns
+    -------
+    float
+        Integrated value.
+    """
     if hasattr(np, "trapezoid"):
         return float(np.trapezoid(values, dx=dx))
     return float(np.trapz(values, dx=dx))
@@ -650,6 +862,11 @@ def _integrate_trapz(values: np.ndarray, dx: float = 1.0):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _psd_welch(signal: np.ndarray, fs: float, fmin: float, fmax: float):
+    """
+    Compute Welch PSD and return frequencies and power within [fmin, fmax].
+
+    Returns (None, None) for very short signals.
+    """
     if signal.size < 4:
         return None, None
     nperseg = min(256, signal.size)
@@ -660,6 +877,11 @@ def _psd_welch(signal: np.ndarray, fs: float, fmin: float, fmax: float):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _psd_neurokit(signal: np.ndarray, fs: float, fmin: float, fmax: float):
+    """
+    Compute PSD using NeuroKit2's wrapper and normalize return types.
+
+    Returns a tuple `(freqs, power)` or `(None, None)` on failure.
+    """
     psd = nk.signal_psd(
         signal,
         sampling_rate=fs,
@@ -684,6 +906,25 @@ def _psd_neurokit(signal: np.ndarray, fs: float, fmin: float, fmax: float):
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_bvp_features(bvp_window, fs_bvp=64, prev_features=None, fallback="prev"):
+    """
+    Extract BVP-derived heart rate and HRV features from a BVP window.
+
+    Parameters
+    ----------
+    bvp_window : array-like
+        Raw BVP samples for the window.
+    fs_bvp : float, optional
+        Sampling rate of BVP (default 64 Hz for Empatica E4 wrist).
+    prev_features : dict or None, optional
+        Previous-window features used when `fallback='prev'`.
+    fallback : {'prev', 'nan'}, optional
+        Fallback strategy when extraction fails.
+
+    Returns
+    -------
+    dict
+        Dictionary of HR and HRV features.
+    """
     feature_names = [
         "bvp_hr_mean",
         "bvp_hr_std",
@@ -771,6 +1012,11 @@ def extract_bvp_features(bvp_window, fs_bvp=64, prev_features=None, fallback="pr
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_eda_features(eda_window, fs_eda=4, prev_features=None, fallback="prev"):
+    """
+    Extract EDA / skin conductance features from a window.
+
+    Returns features such as mean, std, SCR counts, mean SCR amplitude and AUC.
+    """
     feature_names = [
         "eda_mean",
         "eda_std",
@@ -851,6 +1097,11 @@ def extract_eda_features(eda_window, fs_eda=4, prev_features=None, fallback="pre
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def extract_temp_features(temp_window, fs_temp=4, prev_features=None, fallback="prev"):
+    """
+    Extract simple temperature features from a window.
+
+    Features include mean, std, min, max, range and slope.
+    """
     feature_names = [
         "temp_mean",
         "temp_std",
@@ -879,6 +1130,9 @@ def extract_temp_features(temp_window, fs_temp=4, prev_features=None, fallback="
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###   ###
 def _peak_frequency(signal: np.ndarray, fs: float):
+    """
+    Return the dominant frequency of a signal, skipping the DC component.
+    """
     freqs, power = _psd_welch(signal, fs, 0.0, fs / 2.0)
     if freqs is None or power is None or freqs.size < 2:
         return np.nan
@@ -895,6 +1149,12 @@ def extract_acc_features(
     fallback="prev",
     smooth_window_s=1.0,
 ):
+    """
+    Extract acceleration statistics from a 3-axis accelerometer window.
+
+    Returns per-axis mean/std, magnitude stats, absolute integral and peak
+    frequency estimates.
+    """
     feature_names = [
         "acc_x_mean",
         "acc_x_std",
@@ -966,6 +1226,32 @@ def build_feature_dataframe(
     add_quality_flags=True,
     verbose=True,
 ):
+    """
+    Build a pandas DataFrame of features from segmented windows for all subjects.
+
+    Parameters
+    ----------
+    segments_by_subject : dict
+        Mapping subject_id -> segments dict produced by the segmentation step.
+    fs_wrist : dict, optional
+        Sampling rates for wrist sensors. Defaults to Empatica E4 settings.
+    fallback : str, optional
+        Fallback strategy passed to extractors.
+    acc_smooth_window_s : float, optional
+        Smoothing window for accelerometer magnitude (seconds).
+    fill_missing : bool, optional
+        Whether to fill missing feature values with sensible defaults.
+    add_quality_flags : bool, optional
+        Whether to add boolean/integer quality flags to each row.
+    verbose : bool, optional
+        Print progress per subject when True.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Compiled feature table with one row per window.
+    """
+
     if fs_wrist is None:
         fs_wrist = {"BVP": 64, "EDA": 4, "TEMP": 4, "ACC": 32}
 
@@ -1032,6 +1318,11 @@ def build_feature_dataframe_for_subject(
     fill_missing=True,
     add_quality_flags=True,
 ):
+    """
+    Convenience wrapper to extract features for a single subject.
+
+    Raises a KeyError if the subject is not present in `segments_by_subject`.
+    """
     if subject_id not in segments_by_subject:
         raise KeyError(f"Subject {subject_id} not found in segments_by_subject")
 
